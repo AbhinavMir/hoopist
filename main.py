@@ -21,10 +21,11 @@ class StaticHoopTracker:
         self.hoop_radius = 40  # Default radius
         self.hoop_detected = False
         
-        # Shot detection
+        # Shot counting with missed shots
         self.shot_count = 0
+        self.missed_count = 0
         self.last_shot_time = 0
-        self.shot_cooldown = 1.0
+        self.shot_cooldown = 1.5  # Increased cooldown
         
         # Depth calibration
         self.calibration_mode = False
@@ -33,9 +34,9 @@ class StaticHoopTracker:
         self.near_distance = 100    # cm
         self.far_distance = 300     # cm
         
-        # Shot detection zones
-        self.approach_zone = 150    # pixels around hoop (increased)
-        self.scoring_zone = 80      # pixels for made shot (increased)
+        # Shot detection zones - adjusted for your hoop position
+        self.approach_zone = 120    # pixels around hoop
+        self.scoring_zone = 60      # pixels for made shot
         
         # Visual settings
         self.show_hoop_guide = True
@@ -174,7 +175,7 @@ class StaticHoopTracker:
         # Draw shot counter and missed shots
         cv2.putText(frame, f"Shots Made: {self.shot_count}", (10, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(frame, f"Shots Missed: 0", (10, 60),
+        cv2.putText(frame, f"Shots Missed: {self.missed_count}", (10, 60),
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         
         # Draw basketball and depth
@@ -263,9 +264,31 @@ class StaticHoopTracker:
             cv2.putText(frame, f"Hoop: ({hx}, {hy}) R:{self.hoop_radius}", 
                        (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
-        # Mask preview
+        # Mask preview with hoop indicator
         mask_small = cv2.resize(mask, (160, 120))
         mask_colored = cv2.cvtColor(mask_small, cv2.COLOR_GRAY2BGR)
+        
+        # Add hoop position to mask preview if detected
+        if self.hoop_detected and self.hoop_center:
+            # Scale hoop position to mask preview size
+            mask_scale_x = 160 / w
+            mask_scale_y = 120 / h
+            hoop_x_small = int(self.hoop_center[0] * mask_scale_x)
+            hoop_y_small = int(self.hoop_center[1] * mask_scale_y)
+            hoop_r_small = int(self.hoop_radius * mask_scale_x)
+            
+            # Draw hoop on mask preview
+            cv2.circle(mask_colored, (hoop_x_small, hoop_y_small), 
+                      hoop_r_small, (0, 255, 255), 2)
+            cv2.circle(mask_colored, (hoop_x_small, hoop_y_small), 
+                      2, (0, 255, 255), -1)
+            # Crosshair
+            cv2.line(mask_colored, (hoop_x_small - 10, hoop_y_small), 
+                    (hoop_x_small + 10, hoop_y_small), (0, 255, 255), 1)
+            cv2.line(mask_colored, (hoop_x_small, hoop_y_small - 10), 
+                    (hoop_x_small, hoop_y_small + 10), (0, 255, 255), 1)
+        
+        # Place mask preview in corner
         frame[h-130:h-10, w-170:w-10] = mask_colored
         
         # Instructions
